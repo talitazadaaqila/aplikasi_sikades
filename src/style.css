@@ -1,0 +1,62 @@
+@import 'bootstrap/dist/css/bootstrap.min.css';
+
+:root {
+  --bs-primary: #3498db;
+  --bs-primary-rgb: 52, 152, 219;
+  --color-awan: #e1f5fe;
+  --color-sidebar: #0288d1;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: var(--color-awan);
+  color: #333;
+}
+
+/* override bg-primary */
+.bg-primary {
+  background-color: var(--bs-primary) !important;
+}
+
+.fade-in {
+  animation: fadeIn 0.4s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.sidebar-container {
+  background: linear-gradient(180deg, #ffffff 0%, var(--color-awan) 100%) !important;
+  border-right: 1px solid #b3e5fc;
+}
+
+.sidebar-container .text-white {
+  color: #01579b !important;
+}
+
+.menu-link {
+  color: #0277bd !important;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.menu-link:hover {
+  background-color: rgba(52, 152, 219, 0.1);
+}
+
+.menu-link.active {
+  background-color: var(--bs-primary);
+  color: #fff !important;
+  font-weight: 600;
+  box-shadow: 0 4px 6px rgba(52, 152, 219, 0.2);
+}
+
+.sidebar-container::-webkit-scrollbar {
+    width: 6px;
+}
+.sidebar-container::-webkit-scrollbar-thumb {
+    background: #81d4fa; 
+    border-radius: 10px;
+}
