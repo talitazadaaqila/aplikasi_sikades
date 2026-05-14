@@ -1,5 +1,13 @@
 import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import 'jspdf-autotable';
+import type { UserOptions } from 'jspdf-autotable';
+
+declare module 'jspdf' {
+  interface jsPDF {
+    lastAutoTable: { finalY: number };
+    autoTable: (options: UserOptions) => jsPDF;
+  }
+}
 
 interface ColumnDef {
   header: string;
@@ -45,12 +53,12 @@ export const exportToPDF = (
     doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
     doc.text('PEMERINTAH KABUPATEN PEKALONGAN', 105, 15, { align: 'center' });
     doc.text('DESA GEMBONG BERINGIN', 105, 22, { align: 'center' });
-    
+
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
     doc.setTextColor(100);
     doc.text('Kel. Kedungwuni Barat, Kec. Kedungwuni, Kab. Pekalongan', 105, 27, { align: 'center' });
-    
+
     // Horizontal Line
     doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
     doc.setLineWidth(0.8);
@@ -69,32 +77,32 @@ export const exportToPDF = (
     // Report Meta (Date)
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
-    const printDate = new Date().toLocaleDateString('id-ID', { 
-      day: 'numeric', 
-      month: 'long', 
-      year: 'numeric' 
+    const printDate = new Date().toLocaleDateString('id-ID', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
     });
     doc.text(`Tanggal Cetak: ${printDate}`, 14, 58);
 
     // Main Table
-    autoTable(doc, {
+    doc.autoTable({
       startY: 63,
       columns: columns,
       body: data,
       theme: 'striped',
-      headStyles: { 
-        fillColor: secondaryColor, 
-        textColor: 255, 
-        fontSize: 11, 
+      headStyles: {
+        fillColor: secondaryColor,
+        textColor: 255,
+        fontSize: 11,
         fontStyle: 'bold',
         halign: 'center'
       },
-      bodyStyles: { 
-        fontSize: 10, 
-        cellPadding: 4 
+      bodyStyles: {
+        fontSize: 10,
+        cellPadding: 4
       },
-      alternateRowStyles: { 
-        fillColor: [245, 250, 247] 
+      alternateRowStyles: {
+        fillColor: [245, 250, 247]
       },
       margin: { left: 14, right: 14 },
       didDrawPage: (_dataArg) => {
@@ -104,10 +112,10 @@ export const exportToPDF = (
         const pageSize = doc.internal.pageSize;
         const pageHeight = pageSize.height ? pageSize.height : pageSize.getHeight();
         const pageWidth = pageSize.width ? pageSize.width : pageSize.getWidth();
-        
+
         // Left footer
         doc.text('SIKADES - Gembong Beringin', 14, pageHeight - 10);
-        
+
         // Right footer (Page X of Y)
         const pageNumber = (doc.internal as any).getNumberOfPages();
         doc.text(`Halaman ${pageNumber}`, pageWidth - 14, pageHeight - 10, { align: 'right' });

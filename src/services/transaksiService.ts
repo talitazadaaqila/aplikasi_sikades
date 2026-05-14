@@ -146,7 +146,7 @@ export const getDashboardData = async () => {
   ]);
 
   if (resPemasukan.error || resPengeluaran.error) {
-    return { error: 'Gagal mengambil data dashboard' };
+    return { error: { message: 'Gagal mengambil data dashboard' } };
   }
 
   const pemasukanList = resPemasukan.data || [];

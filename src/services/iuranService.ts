@@ -13,12 +13,10 @@ const generateId = () => Math.random().toString(36).substr(2, 9);
 const getMockData = (key: string) => JSON.parse(localStorage.getItem(key) || '[]');
 const saveMockData = (key: string, data: any[]) => localStorage.setItem(key, JSON.stringify(data));
 
-const handleSupabaseError = (error: any) => {
+const handleSupabaseError = (error: any): boolean => {
   if (error) {
     console.error('Supabase Error:', error);
-    // Fallback on ANY error for these specific tables to ensure UX
     console.warn('Falling back to Mock Data for this session.');
-    forceMock = true;
     return true;
   }
   return false;
@@ -30,7 +28,7 @@ export const getRumah = async (): Promise<{data: any; error: any}> => {
     return { data: getMockData(KEY_RUMAH), error: null };
   }
   const { data, error } = await supabase.from('rumah').select('*').order('kepala_keluarga');
-  if (handleSupabaseError(error)) return getRumah();
+  if (handleSupabaseError(error)) { forceMock = true; return getRumah(); }
   return { data, error };
 };
 
@@ -45,7 +43,7 @@ export const createRumah = async (rumah: Rumah): Promise<{data: any; error: any}
   const { id: _id, ...insertData } = rumah;
   void _id;
   const { data, error } = await supabase.from('rumah').insert([insertData]).select();
-  if (handleSupabaseError(error)) return createRumah(rumah);
+  if (handleSupabaseError(error)) { forceMock = true; return createRumah(rumah); }
   return { data, error };
 };
 
@@ -53,11 +51,14 @@ export const deleteRumah = async (id: string) => {
   if (isUsingDummy || forceMock) {
     const data = getMockData(KEY_RUMAH).filter((item: any) => item.id !== id);
     const anggota = getMockData(KEY_ANGGOTA).filter((item: any) => item.rumah_id !== id);
+    const iuran = getMockData(KEY_IURAN).filter((item: any) => item.rumah_id !== id);
     saveMockData(KEY_RUMAH, data);
     saveMockData(KEY_ANGGOTA, anggota);
+    saveMockData(KEY_IURAN, iuran);
     return { data: null, error: null };
   }
   await supabase.from('anggota_keluarga').delete().eq('rumah_id', id);
+  await supabase.from('iuran').delete().eq('rumah_id', id);
   const { data, error } = await supabase.from('rumah').delete().eq('id', id);
   return { data, error };
 };
@@ -188,15 +189,18 @@ export const unpayIuran = async (rumahId: string, bulan: string, tahun: string) 
   }
 
   // Supabase version
-  // 1. Delete Iuran
   const { data: deletedIuran, error: iError } = await supabase.from('iuran').delete().eq('rumah_id', rumahId).eq('bulan', bulan).eq('tahun', tahun);
-  
+
   // 2. Delete Pemasukan
   const { getPemasukan, deletePemasukan } = await import('./transaksiService');
-  const { data: pemList } = await getPemasukan();
-  const pemToDelete = pemList?.find((p: any) => p.sumber === sourceString);
-  if (pemToDelete?.id) {
-    await deletePemasukan(pemToDelete.id);
+  try {
+    const { data: pemList } = await getPemasukan();
+    const pemToDelete = pemList?.find((p: any) => p.sumber === sourceString);
+    if (pemToDelete?.id) {
+      await deletePemasukan(pemToDelete.id);
+    }
+  } catch (e) {
+    console.warn('Gagal menghapus pemasukan terkait:', e);
   }
 
   return { data: deletedIuran, error: iError };

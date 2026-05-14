@@ -508,8 +508,10 @@ export const initIuran = async (role: string = 'admin') => {
     (document.getElementById('payRumahId') as HTMLInputElement).value = currentDetailRumahId;
     const now = new Date();
     const months = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
-    (document.getElementById('payBulan') as HTMLSelectElement).value = months[now.getMonth()];
-    (document.getElementById('payTahun') as HTMLInputElement).value = now.getFullYear().toString();
+    const payBulan = document.getElementById('payBulan') as HTMLSelectElement;
+    const payTahun = document.getElementById('payTahun') as HTMLInputElement;
+    payBulan.value = months[now.getMonth()];
+    payTahun.value = now.getFullYear().toString();
     const modalEl = document.getElementById('modalPayIuran');
     if (modalEl) {
       bootstrap.Modal.getOrCreateInstance(modalEl).show();
@@ -519,13 +521,17 @@ export const initIuran = async (role: string = 'admin') => {
   // Form Pay Iuran Submit
   document.getElementById('formPayIuran')?.addEventListener('submit', async (e) => {
     e.preventDefault();
+    const payBulan = document.getElementById('payBulan') as HTMLSelectElement;
+    const payTahun = document.getElementById('payTahun') as HTMLInputElement;
+    const payJumlah = document.getElementById('payJumlah') as HTMLInputElement;
+    const keterangan = payBulan.value;
     const newData: Iuran = {
       rumah_id: (document.getElementById('payRumahId') as HTMLInputElement).value,
       tanggal: new Date().toISOString().split('T')[0],
-      bulan: (document.getElementById('payBulan') as HTMLSelectElement).value,
-      tahun: (document.getElementById('payTahun') as HTMLInputElement).value,
-      jumlah: Number((document.getElementById('payJumlah') as HTMLInputElement).value),
-      keterangan: `Iuran Bulanan ${ (document.getElementById('payBulan') as HTMLSelectElement).value }`
+      bulan: payBulan.value,
+      tahun: payTahun.value,
+      jumlah: Number(payJumlah.value),
+      keterangan: `Iuran Bulanan ${keterangan}`
     };
     const { error } = await payIuran(newData);
     if (!error) {

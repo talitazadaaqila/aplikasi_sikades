@@ -4,7 +4,7 @@
   --bs-primary: #3498db;
   --bs-primary-rgb: 52, 152, 219;
   --color-awan: #e1f5fe;
-  --color-sidebar: #0288d1;
+  --color-sidebar: #1b4933;
 }
 
 body {
@@ -28,35 +28,39 @@ body {
 }
 
 .sidebar-container {
-  background: linear-gradient(180deg, #ffffff 0%, var(--color-awan) 100%) !important;
-  border-right: 1px solid #b3e5fc;
+  background-color: var(--color-sidebar) !important;
+  border-right: 1px solid rgba(255,255,255,0.15);
+}
+
+.sidebar-container .nav-link {
+  color: rgba(255,255,255,0.85) !important;
 }
 
 .sidebar-container .text-white {
-  color: #01579b !important;
+  color: #ffffff !important;
 }
 
 .menu-link {
-  color: #0277bd !important;
+  color: rgba(255,255,255,0.85) !important;
   font-weight: 500;
   transition: all 0.2s ease;
 }
 
 .menu-link:hover {
-  background-color: rgba(52, 152, 219, 0.1);
+  background-color: rgba(255,255,255,0.1);
 }
 
 .menu-link.active {
-  background-color: var(--bs-primary);
+  background-color: #387f5f !important;
   color: #fff !important;
   font-weight: 600;
-  box-shadow: 0 4px 6px rgba(52, 152, 219, 0.2);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
 }
 
 .sidebar-container::-webkit-scrollbar {
     width: 6px;
 }
 .sidebar-container::-webkit-scrollbar-thumb {
-    background: #81d4fa; 
+    background: rgba(255,255,255,0.2);
     border-radius: 10px;
 }

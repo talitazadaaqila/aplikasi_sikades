@@ -36,10 +36,17 @@ export const logout = async () => {
 };
 
 export const checkSession = async () => {
-  const mockRole = localStorage.getItem(MOCK_SESSION_KEY);
-  if (mockRole) {
-    return { session: { user: { email: mockRole, role: mockRole } }, error: null };
-  }
-  const { data, error } = await supabase.auth.getSession();
-  return { session: data.session, error };
-};
+   const mockRole = localStorage.getItem(MOCK_SESSION_KEY);
+   if (mockRole) {
+     return { session: { user: { email: mockRole, role: mockRole } }, error: null };
+   }
+   const { data, error } = await supabase.auth.getSession();
+   return { session: data.session, error };
+ };
+
+ export const getCurrentUserRole = async (): Promise<string> => {
+   const mockRole = localStorage.getItem(MOCK_SESSION_KEY);
+   if (mockRole) return mockRole;
+   const { data: { session } } = await supabase.auth.getSession();
+   return (session?.user as any)?.role || 'admin';
+ };
