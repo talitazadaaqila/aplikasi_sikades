@@ -1,7 +1,15 @@
-import { getPemasukan, createPemasukan, deletePemasukan, updatePemasukan } from '../services/transaksiService';
+import {
+  getPemasukan,
+  createPemasukan,
+  deletePemasukan,
+  updatePemasukan,
+  EventBus,
+  debounce,
+} from '../services/transaksiService';
 import { formatRupiah, formatDate } from '../utils/formatter';
 import { exportToPDF } from '../utils/export';
 import type { Pemasukan } from '../interfaces';
+
 
 export const renderPemasukan = () => {
   return `
@@ -92,6 +100,22 @@ export const initPemasukan = async () => {
   let allData: Pemasukan[] = [];
   let filteredData: Pemasukan[] = [];
   
+  // Guard agar setup listener (search/export) tidak dobel (sementara belum dipakai)
+  // let isSetupSearch = false;
+  // let isSetupExport = false;
+
+  
+  const setupRealtime = () => {
+    const debouncedLoad = debounce(loadData, 300);
+    const cleanup = EventBus.on('data:changed', (payload: any) => {
+      if (!payload) return;
+      if (payload.source !== 'pemasukan') return;
+      // Hanya refresh bila ada perubahan yang relevan
+      debouncedLoad();
+    });
+    return cleanup;
+  };
+
   const renderTable = (data: Pemasukan[]) => {
     filteredData = data; // Track currently visible data
     const tbody = document.getElementById('tablePemasukanBody');
@@ -169,6 +193,7 @@ export const initPemasukan = async () => {
 
   const loadData = async () => {
     const { data, error } = await getPemasukan();
+
     if (error || !data) {
       const tbody = document.getElementById('tablePemasukanBody');
       if (tbody) tbody.innerHTML = `<tr><td colspan="5" class="text-center text-danger py-4 border-0">Gagal memuat data</td></tr>`;
@@ -214,6 +239,17 @@ export const initPemasukan = async () => {
 
   await loadData();
 
+  // Setup realtime refresh
+  const cleanupRealtime = setupRealtime();
+
+  // Cleanup saat navigasi ke halaman lain
+  const cleanup = () => {
+    try {
+      if (typeof cleanupRealtime === 'function') cleanupRealtime();
+    } catch {}
+  };
+  (window as any).__cleanupPemasukan = cleanup;
+
   // Reset modal on "Tambah" click
   const btnTambah = document.getElementById('btnTambahPemasukan');
   btnTambah?.addEventListener('click', () => {
@@ -252,10 +288,18 @@ export const initPemasukan = async () => {
     if (submitBtn) submitBtn.disabled = false;
 
     if (!res.error) {
+      (window as any).Swal?.fire({
+        icon: 'success',
+        title: 'Berhasil',
+        text: id ? 'Data pemasukan berhasil diperbarui.' : 'Data pemasukan berhasil disimpan.' ,
+        timer: 1500,
+        showConfirmButton: false,
+      });
+
       const modalEl = document.getElementById('modalPemasukan');
       const modal = (window as any).bootstrap.Modal.getInstance(modalEl);
       if (modal) modal.hide();
-      
+
       // Force remove backdrop if it gets stuck
       const backdrops = document.querySelectorAll('.modal-backdrop');
       backdrops.forEach(b => b.remove());
@@ -264,7 +308,11 @@ export const initPemasukan = async () => {
 
       await loadData();
     } else {
-      alert('Gagal menyimpan data: ' + res.error.message);
+      (window as any).Swal?.fire({
+        icon: 'error',
+        title: 'Gagal',
+        text: 'Gagal menyimpan data: ' + (res.error?.message || 'Terjadi kesalahan'),
+      });
     }
   });
 };

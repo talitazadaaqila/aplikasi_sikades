@@ -61,6 +61,12 @@ body {
     width: 6px;
 }
 .sidebar-container::-webkit-scrollbar-thumb {
-    background: rgba(255,255,255,0.2);
-    border-radius: 10px;
+     background: rgba(255,255,255,0.2);
+     border-radius: 10px;
+   }
+
+/* Animasi kedip untuk indikator real-time */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
 }

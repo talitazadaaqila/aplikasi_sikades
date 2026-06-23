@@ -1,4 +1,12 @@
-import { getPengeluaran, createPengeluaran, deletePengeluaran, updatePengeluaran } from '../services/transaksiService';
+import {
+  getPengeluaran,
+  createPengeluaran,
+  deletePengeluaran,
+  updatePengeluaran,
+  EventBus,
+  debounce,
+} from '../services/transaksiService';
+
 import { formatRupiah, formatDate } from '../utils/formatter';
 import { exportToPDF } from '../utils/export';
 import type { Pengeluaran } from '../interfaces';
@@ -104,6 +112,21 @@ export const initPengeluaran = async () => {
   let allData: Pengeluaran[] = [];
   let filteredData: Pengeluaran[] = [];
   
+  // Guard untuk handler agar tidak dobel
+  let isSearchBound = false;
+  let isExportBound = false;
+
+  const setupRealtime = () => {
+    const debouncedLoad = debounce(loadData, 300);
+    const cleanup = EventBus.on('data:changed', (payload: any) => {
+      if (!payload) return;
+      if (payload.source !== 'pengeluaran') return;
+      debouncedLoad();
+    });
+    return cleanup;
+  };
+
+
   const renderTable = (data: Pengeluaran[]) => {
     filteredData = data; // Track currently visible data
     const tbody = document.getElementById('tablePengeluaranBody');
@@ -194,28 +217,30 @@ export const initPengeluaran = async () => {
 
     renderTable(allData);
     
-    // Setup Search
+    // Setup Search (sekali saja)
     const searchInput = document.getElementById('searchInput') as HTMLInputElement;
-    if (searchInput) {
+    if (searchInput && !isSearchBound) {
+      isSearchBound = true;
       searchInput.addEventListener('input', (e) => {
         const query = (e.target as HTMLInputElement).value.toLowerCase();
-        const filtered = allData.filter(item => 
-          item.tujuan.toLowerCase().includes(query) || 
+        const filtered = allData.filter(item =>
+          item.tujuan.toLowerCase().includes(query) ||
           item.keterangan.toLowerCase().includes(query)
         );
         renderTable(filtered);
       });
     }
 
-    // Setup Export
+    // Setup Export (sekali saja)
     const btnExport = document.getElementById('btnExportPengeluaran');
-    if (btnExport) {
+    if (btnExport && !isExportBound) {
+      isExportBound = true;
       btnExport.onclick = () => {
         const columns = [
           { header: 'Tanggal', dataKey: 'tanggal' },
           { header: 'Tujuan', dataKey: 'tujuan' },
           { header: 'Keterangan', dataKey: 'keterangan' },
-          { header: 'Jumlah (Rp)', dataKey: 'jumlah' }
+          { header: 'Jumlah (Rp)', dataKey: 'jumlah' },
         ];
         const exportData = filteredData.map(item => ({
           tanggal: formatDate(item.tanggal),
@@ -230,6 +255,17 @@ export const initPengeluaran = async () => {
   };
 
   await loadData();
+
+  // Setup realtime refresh
+  const cleanupRealtime = setupRealtime();
+
+  // Cleanup saat navigasi ke halaman lain
+  const cleanup = () => {
+    try {
+      if (typeof cleanupRealtime === 'function') cleanupRealtime();
+    } catch {}
+  };
+  (window as any).__cleanupPengeluaran = cleanup;
 
   // Reset modal on "Tambah" click
   const btnTambah = document.getElementById('btnTambahPengeluaran');
@@ -269,10 +305,18 @@ export const initPengeluaran = async () => {
     if (submitBtn) submitBtn.disabled = false;
 
     if (!res.error) {
+      (window as any).Swal?.fire({
+        icon: 'success',
+        title: 'Berhasil',
+        text: id ? 'Data pengeluaran berhasil diperbarui.' : 'Data pengeluaran berhasil disimpan.',
+        timer: 1500,
+        showConfirmButton: false,
+      });
+
       const modalEl = document.getElementById('modalPengeluaran');
       const modal = (window as any).bootstrap.Modal.getInstance(modalEl);
       if (modal) modal.hide();
-      
+
       // Force remove backdrop if it gets stuck
       const backdrops = document.querySelectorAll('.modal-backdrop');
       backdrops.forEach(b => b.remove());
@@ -281,7 +325,11 @@ export const initPengeluaran = async () => {
 
       await loadData();
     } else {
-      alert('Gagal menyimpan data: ' + res.error.message);
+      (window as any).Swal?.fire({
+        icon: 'error',
+        title: 'Gagal',
+        text: 'Gagal menyimpan data: ' + (res.error?.message || 'Terjadi kesalahan'),
+      });
     }
   });
 };
