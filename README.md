@@ -103,6 +103,20 @@ Tanpa Supabase, aplikasi tetap berfungsi penuh:
 
 ---
 
+## Status Pengujian
+
+| Jenis | Status | Coverage |
+|-------|--------|----------|
+| **Lint (ESLint)** | ✅ **100%** | Seluruh source file |
+| **Type Check (tsc)** | ✅ **100%** | Seluruh source file |
+| **Build (Vite)** | ✅ **100%** | Seluruh modul & aset |
+| **Unit Test** | ⏳ Belum tersedia | **0%** — belum ada test suite |
+| **CI Pipeline** | ✅ Aktif | Lint + Build otomatis tiap push/PR ke `main` |
+
+> **Catatan**: Proyek ini belum memiliki unit test otomatis. Disarankan untuk menambahkan test menggunakan framework seperti **Vitest** untuk mencakup service layer (`transaksiService.ts`, `iuranService.ts`) dan utility functions (`formatter.ts`, `export.ts`).
+
+---
+
 ## Struktur Proyek
 
 ```
