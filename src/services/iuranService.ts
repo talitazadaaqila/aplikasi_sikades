@@ -1,5 +1,5 @@
 import { supabase } from '../config/supabaseClient';
-import type { Rumah, AnggotaKeluarga, Iuran } from '../interfaces';
+import type { AnggotaKeluarga, Iuran, Rumah } from '../interfaces';
 import { createPemasukan } from './transaksiService';
 
 const isUsingDummy = (import.meta.env.VITE_SUPABASE_URL || 'https://dummy.supabase.co') === 'https://dummy.supabase.co';
@@ -161,7 +161,7 @@ export const payIuran = async (iuran: Iuran): Promise<{data: any; error: any}> =
       tanggal: iuran.tanggal,
       sumber: `Iuran Warga: ${rumahData?.kepala_keluarga || 'Rumah'} (${iuran.bulan}/${iuran.tahun})`,
       jumlah: iuran.jumlah,
-      keterangan: iuran.keterangan || `Pembayaran iuran bulan ${iuran.bulan} ${iuran.tahun}`
+      keterangan: iuran.keterangan || `Pembayaran iuran bulan ${iuran.bulan} ${iuran.tahun}`,
     });
   }
 
@@ -175,7 +175,9 @@ export const unpayIuran = async (rumahId: string, bulan: string, tahun: string) 
 
   if (isUsingDummy || forceMock) {
     // 1. Delete Iuran
-    const iuranData = getMockData(KEY_IURAN).filter((i: any) => !(i.rumah_id === rumahId && i.bulan === bulan && i.tahun === tahun));
+    const iuranData = getMockData(KEY_IURAN).filter(
+      (i: any) => !(i.rumah_id === rumahId && i.bulan === bulan && i.tahun === tahun),
+    );
     saveMockData(KEY_IURAN, iuranData);
 
     // 2. Delete Pemasukan
@@ -189,7 +191,8 @@ export const unpayIuran = async (rumahId: string, bulan: string, tahun: string) 
   }
 
   // Supabase version
-  const { data: deletedIuran, error: iError } = await supabase.from('iuran').delete().eq('rumah_id', rumahId).eq('bulan', bulan).eq('tahun', tahun);
+  const { data: deletedIuran, error: iError } = await supabase.from('iuran').delete().eq('rumah_id', rumahId).eq('bulan', bulan)
+    .eq('tahun', tahun);
 
   // 2. Delete Pemasukan
   const { getPemasukan, deletePemasukan } = await import('./transaksiService');
@@ -210,13 +213,15 @@ export const unpayIuran = async (rumahId: string, bulan: string, tahun: string) 
 export const getIuranStats = async () => {
   const { data: rumahList } = await getRumah();
   const { data: iuranList } = await getIuran();
-  
-  const months = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+
+  const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
   const currentMonth = months[new Date().getMonth()];
   const currentYear = new Date().getFullYear().toString();
 
   const rumahWithStatus = (rumahList || []).map((r: any) => {
-    const isPaid = (iuranList || []).some((i: any) => i.rumah_id === r.id && i.bulan === currentMonth && i.tahun === currentYear);
+    const isPaid = (iuranList || []).some(
+      (i: any) => i.rumah_id === r.id && i.bulan === currentMonth && i.tahun === currentYear,
+    );
     return { ...r, isPaid };
   });
 
@@ -224,6 +229,6 @@ export const getIuranStats = async () => {
     rumahWithStatus,
     paidCount: rumahWithStatus.filter((r: any) => r.isPaid).length,
     unpaidCount: rumahWithStatus.filter((r: any) => !r.isPaid).length,
-    totalRumah: rumahWithStatus.length
+    totalRumah: rumahWithStatus.length,
   };
 };

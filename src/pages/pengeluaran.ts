@@ -1,18 +1,16 @@
-import {
-  getPengeluaran,
-  createPengeluaran,
-  deletePengeluaran,
-  updatePengeluaran,
-  EventBus,
-  debounce,
-} from '../services/transaksiService';
-
-import { formatRupiah, formatDate } from '../utils/formatter';
-import { exportToPDF } from '../utils/export';
 import type { Pengeluaran } from '../interfaces';
+import {
+  createPengeluaran,
+  debounce,
+  deletePengeluaran,
+  EventBus,
+  getPengeluaran,
+  updatePengeluaran,
+} from '../services/transaksiService';
+import { exportToPDF } from '../utils/export';
+import { formatDate, formatRupiah } from '../utils/formatter';
 
-export const renderPengeluaran = () => {
-  return `
+export const renderPengeluaran = () => `
     <div class="container-fluid fade-in px-2 py-3">
       <div class="d-flex justify-content-between align-items-center mb-1">
         <h3 class="fw-bold mb-0" style="color: #1b4933; font-family: serif;">Pengeluaran Kas Desa</h3>
@@ -106,12 +104,11 @@ export const renderPengeluaran = () => {
       </div>
     </div>
   `;
-};
 
 export const initPengeluaran = async () => {
   let allData: Pengeluaran[] = [];
   let filteredData: Pengeluaran[] = [];
-  
+
   // Guard untuk handler agar tidak dobel
   let isSearchBound = false;
   let isExportBound = false;
@@ -126,18 +123,17 @@ export const initPengeluaran = async () => {
     return cleanup;
   };
 
-
   const renderTable = (data: Pengeluaran[]) => {
     filteredData = data; // Track currently visible data
     const tbody = document.getElementById('tablePengeluaranBody');
     if (!tbody) return;
-    
+
     if (data.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-4 border-0">Data tidak ditemukan</td></tr>`;
+      tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4 border-0">Data tidak ditemukan</td></tr>';
       return;
     }
 
-    tbody.innerHTML = data.map((item) => `
+    tbody.innerHTML = data.map(item => `
       <tr style="border-bottom: 1px solid #f0f0f0;">
         <td class="border-0 text-muted" style="font-size: 0.95rem;">${formatDate(item.tanggal)}</td>
         <td class="border-0 fw-medium" style="color: #1b4933; font-size: 0.95rem;">${item.tujuan}</td>
@@ -160,9 +156,9 @@ export const initPengeluaran = async () => {
 
     // Attach Delete listeners
     document.querySelectorAll('.btn-delete-out').forEach(btn => {
-      btn.addEventListener('click', async (e) => {
-        const id = (e.currentTarget as HTMLButtonElement).dataset.id;
-        if (id && confirm('Yakin ingin menghapus data pengeluaran ini?')) {
+      btn.addEventListener('click', async e => {
+        const { id } = (e.currentTarget as HTMLButtonElement).dataset;
+        if (id && window.confirm('Yakin ingin menghapus data pengeluaran ini?')) {
           await deletePengeluaran(id);
           await loadData();
         }
@@ -171,8 +167,8 @@ export const initPengeluaran = async () => {
 
     // Attach Edit listeners
     document.querySelectorAll('.btn-edit-out').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        const id = (e.currentTarget as HTMLButtonElement).dataset.id;
+      btn.addEventListener('click', e => {
+        const { id } = (e.currentTarget as HTMLButtonElement).dataset;
         const item = allData.find(d => d.id === id);
         if (item) {
           showEditModal(item);
@@ -181,7 +177,7 @@ export const initPengeluaran = async () => {
     });
   };
 
-  const showEditModal = (item: Pengeluaran) => {
+  function showEditModal(item: Pengeluaran) {
     const modalTitle = document.getElementById('modalPengeluaranTitle');
     const formId = document.getElementById('formId') as HTMLInputElement;
     const formTanggal = document.getElementById('formTanggalKeluar') as HTMLInputElement;
@@ -200,33 +196,31 @@ export const initPengeluaran = async () => {
 
     const modal = new (window as any).bootstrap.Modal(document.getElementById('modalPengeluaran'));
     modal.show();
-  };
+  }
 
-  const loadData = async () => {
+  async function loadData() {
     const { data, error } = await getPengeluaran();
     if (error || !data) {
       const tbody = document.getElementById('tablePengeluaranBody');
-      if (tbody) tbody.innerHTML = `<tr><td colspan="5" class="text-center text-danger py-4 border-0">Gagal memuat data</td></tr>`;
+      if (tbody) tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger py-4 border-0">Gagal memuat data</td></tr>';
       return;
     }
-    
+
     allData = data;
     const total = data.reduce((sum: number, item: any) => sum + Number(item.jumlah), 0);
     const elTotal = document.getElementById('totalPengeluaranCard');
     if (elTotal) elTotal.textContent = formatRupiah(total);
 
     renderTable(allData);
-    
+
     // Setup Search (sekali saja)
     const searchInput = document.getElementById('searchInput') as HTMLInputElement;
     if (searchInput && !isSearchBound) {
       isSearchBound = true;
-      searchInput.addEventListener('input', (e) => {
+      searchInput.addEventListener('input', e => {
         const query = (e.target as HTMLInputElement).value.toLowerCase();
-        const filtered = allData.filter(item =>
-          item.tujuan.toLowerCase().includes(query) ||
-          item.keterangan.toLowerCase().includes(query)
-        );
+        const filtered = allData.filter(item => item.tujuan.toLowerCase().includes(query)
+          || item.keterangan.toLowerCase().includes(query));
         renderTable(filtered);
       });
     }
@@ -252,7 +246,7 @@ export const initPengeluaran = async () => {
         exportToPDF('Laporan Pengeluaran Kas Desa', columns, exportData, 'Rekap_Pengeluaran_SIKADES');
       };
     }
-  };
+  }
 
   await loadData();
 
@@ -263,7 +257,9 @@ export const initPengeluaran = async () => {
   const cleanup = () => {
     try {
       if (typeof cleanupRealtime === 'function') cleanupRealtime();
-    } catch {}
+    } catch (err) {
+      console.warn('cleanupPengeluaran error', err);
+    }
   };
   (window as any).__cleanupPengeluaran = cleanup;
 
@@ -282,7 +278,7 @@ export const initPengeluaran = async () => {
   });
 
   const form = document.getElementById('formPengeluaran');
-  form?.addEventListener('submit', async (e) => {
+  form?.addEventListener('submit', async e => {
     e.preventDefault();
     const id = (document.getElementById('formId') as HTMLInputElement).value;
     const formData: Pengeluaran = {
@@ -328,7 +324,7 @@ export const initPengeluaran = async () => {
       (window as any).Swal?.fire({
         icon: 'error',
         title: 'Gagal',
-        text: 'Gagal menyimpan data: ' + (res.error?.message || 'Terjadi kesalahan'),
+        text: `Gagal menyimpan data: ${res.error?.message || 'Terjadi kesalahan'}`,
       });
     }
   });

@@ -1,15 +1,16 @@
+import Chart from 'chart.js/auto';
+
 import {
-  getDashboardData,
+  debounce,
   EventBus,
+  getDashboardData,
+  getLastSyncTime,
+  isUsingDummy,
+  safeSum,
   setupRealtimeSubscriptions,
   startDataPolling,
-  getLastSyncTime,
-  safeSum,
-  isUsingDummy,
-  debounce,
 } from '../services/transaksiService';
 import { formatRupiah } from '../utils/formatter';
-import Chart from 'chart.js/auto';
 
 let chartInstance: Chart | null = null;
 let comparisonChartInstance: Chart | null = null;
@@ -20,8 +21,7 @@ let refreshDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 // ========================
 // RENDER HTML DASHBOARD
 // ========================
-export const renderDashboard = (_role: string = 'admin') => {
-  return `
+export const renderDashboard = (_role: string = 'admin') => `
     <div class="container-fluid fade-in px-2 py-3">
       <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
         <div>
@@ -195,7 +195,6 @@ export const renderDashboard = (_role: string = 'admin') => {
       </div>
     </div>
   `;
-};
 
 // ========================
 // INIT DASHBOARD (UTAMA)
@@ -211,7 +210,7 @@ export const initDashboard = async (_role: string = 'admin') => {
       return;
     }
 
-    const data = result.data;
+    const { data } = result;
     if (!data) {
       showAlert('warning', '⚠️ Data tidak tersedia. Silakan coba lagi nanti.');
       clearAllSpinners();
@@ -222,52 +221,74 @@ export const initDashboard = async (_role: string = 'admin') => {
     let currentPemasukanList = data.pemasukanList || [];
     let currentPengeluaranList = data.pengeluaranList || [];
 
+    // ---- UPDATE CARD STATISTIK ----
+    const updateCards = (pemasukan: any[], pengeluaran: any[]) => {
+      const totalPemasukan = safeSum(pemasukan, 'jumlah');
+      const totalPengeluaran = safeSum(pengeluaran, 'jumlah');
+      const saldo = totalPemasukan - totalPengeluaran;
+
+      const elSaldo = document.getElementById('dashSaldo');
+      const elPemasukan = document.getElementById('dashPemasukan');
+      const elPengeluaran = document.getElementById('dashPengeluaran');
+
+      if (elSaldo) elSaldo.innerHTML = formatRupiah(saldo);
+      if (elPemasukan) elPemasukan.innerHTML = formatRupiah(totalPemasukan);
+      if (elPengeluaran) elPengeluaran.innerHTML = formatRupiah(totalPengeluaran);
+    };
+
+    // ---- UPDATE TIMESTAMP ----
+    const updateSyncTimestamp = () => {
+      const ts = document.getElementById('syncTimestamp');
+      if (ts) ts.textContent = getLastSyncTime();
+      const indicator = document.getElementById('lastUpdated');
+      if (indicator) indicator.classList.remove('d-none');
+    };
+
     // ---- ISI CARD STATISTIK ----
     updateCards(currentPemasukanList, currentPengeluaranList);
 
     // ---- RENDER CHART ----
-    const monthNames = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'];
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'];
 
     /** Proses data ke Map berdasarkan periode */
     const processDataByPeriod = (
       pemasukan: any[],
       pengeluaran: any[],
-      periode: 'bulanan' | 'mingguan'
+      periode: 'bulanan' | 'mingguan',
     ) => {
       const dataMap = new Map<string, { in: number; out: number }>();
 
       const getPeriodKey = (tanggal: string) => {
         if (!tanggal) return '';
         const d = new Date(tanggal);
-        if (isNaN(d.getTime())) return '';
+        if (Number.isNaN(d.getTime())) return '';
         if (periode === 'bulanan') {
           const m = tanggal.substring(0, 7);
           const [y, month] = m.split('-');
           return `${monthNames[parseInt(month, 10) - 1]} ${y.substring(2)}`;
-        } else {
-          const monthStr = monthNames[d.getMonth()];
-          const week = Math.ceil(d.getDate() / 7);
-          return `${monthStr} W${week}`;
         }
+        const monthStr = monthNames[d.getMonth()];
+        const week = Math.ceil(d.getDate() / 7);
+        return `${monthStr} W${week}`;
       };
 
-      pemasukan.forEach((item) => {
+      pemasukan.forEach(item => {
         if (!item?.tanggal) return;
         const key = getPeriodKey(item.tanggal);
         if (!key) return;
         const curr = dataMap.get(key) || { in: 0, out: 0 };
         const val = Number(item?.jumlah);
-        curr.in += isNaN(val) ? 0 : val;
+        curr.in += Number.isNaN(val) ? 0 : val;
         dataMap.set(key, curr);
       });
 
-      pengeluaran.forEach((item) => {
+      pengeluaran.forEach(item => {
         if (!item?.tanggal) return;
         const key = getPeriodKey(item.tanggal);
         if (!key) return;
         const curr = dataMap.get(key) || { in: 0, out: 0 };
         const val = Number(item?.jumlah);
-        curr.out += isNaN(val) ? 0 : val;
+        curr.out += Number.isNaN(val) ? 0 : val;
         dataMap.set(key, curr);
       });
 
@@ -275,7 +296,7 @@ export const initDashboard = async (_role: string = 'admin') => {
     };
 
     /** Render kedua chart */
-    let renderCharts = (periode: 'bulanan' | 'mingguan') => {
+    const renderCharts = (periode: 'bulanan' | 'mingguan') => {
       if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
       if (comparisonChartInstance) { comparisonChartInstance.destroy(); comparisonChartInstance = null; }
 
@@ -304,20 +325,20 @@ export const initDashboard = async (_role: string = 'admin') => {
       const sortedKeys = Array.from(dataMap.keys()).sort((a, b) => {
         const parseIndex = (k: string) => {
           const [monthPart, weekOrYear] = k.split(' ');
-          return monthNames.indexOf(monthPart) * 100 + parseInt(weekOrYear.replace('W', ''));
+          return monthNames.indexOf(monthPart) * 100 + parseInt(weekOrYear.replace('W', ''), 10);
         };
         return parseIndex(a) - parseIndex(b);
       });
 
-      const dsIn = sortedKeys.map((k) => dataMap.get(k)!.in);
-      const dsOut = sortedKeys.map((k) => dataMap.get(k)!.out);
+      const dsIn = sortedKeys.map(k => dataMap.get(k)!.in);
+      const dsOut = sortedKeys.map(k => dataMap.get(k)!.out);
 
       // Chart helper: format y-axis
       const formatYAxis = (value: string | number): string => {
         const num = typeof value === 'string' ? parseFloat(value) : value;
-        if (num >= 1000000) return 'Rp' + (num / 1000000).toFixed(1) + 'jt';
-        if (num >= 1000) return 'Rp' + (num / 1000).toFixed(0) + 'rb';
-        return 'Rp ' + num;
+        if (num >= 1000000) return `Rp${(num / 1000000).toFixed(1)}jt`;
+        if (num >= 1000) return `Rp${(num / 1000).toFixed(0)}rb`;
+        return `Rp ${num}`;
       };
 
       // RENDER CHART 1: Tren Keuangan (Line)
@@ -363,14 +384,16 @@ export const initDashboard = async (_role: string = 'admin') => {
               legend: { display: true, position: 'bottom', labels: { usePointStyle: true, boxWidth: 8, padding: 16 } },
               tooltip: {
                 callbacks: {
-                  label: function (context: any) {
+                  label(context: any) {
                     return ` ${context.dataset.label}: ${formatRupiah(context.parsed.y)}`;
                   },
                 },
               },
             },
             scales: {
-              y: { beginAtZero: true, ticks: { callback: formatYAxis }, grid: { color: 'rgba(0,0,0,0.05)' }, border: { display: false } },
+              y: {
+                beginAtZero: true, ticks: { callback: formatYAxis }, grid: { color: 'rgba(0,0,0,0.05)' }, border: { display: false },
+              },
               x: { grid: { display: false }, border: { display: false } },
             },
           },
@@ -385,8 +408,12 @@ export const initDashboard = async (_role: string = 'admin') => {
           data: {
             labels: sortedKeys,
             datasets: [
-              { label: 'Pemasukan', data: dsIn, backgroundColor: 'rgba(40, 141, 87, 0.75)', borderColor: '#288d57', borderWidth: 1, borderRadius: 4 },
-              { label: 'Pengeluaran', data: dsOut, backgroundColor: 'rgba(213, 75, 75, 0.75)', borderColor: '#d54b4b', borderWidth: 1, borderRadius: 4 },
+              {
+                label: 'Pemasukan', data: dsIn, backgroundColor: 'rgba(40, 141, 87, 0.75)', borderColor: '#288d57', borderWidth: 1, borderRadius: 4,
+              },
+              {
+                label: 'Pengeluaran', data: dsOut, backgroundColor: 'rgba(213, 75, 75, 0.75)', borderColor: '#d54b4b', borderWidth: 1, borderRadius: 4,
+              },
             ],
           },
           options: {
@@ -397,14 +424,16 @@ export const initDashboard = async (_role: string = 'admin') => {
               legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8, padding: 16 } },
               tooltip: {
                 callbacks: {
-                  label: function (context: any) {
+                  label(context: any) {
                     return ` ${context.dataset.label}: ${formatRupiah(context.parsed.y)}`;
                   },
                 },
               },
             },
             scales: {
-              y: { beginAtZero: true, ticks: { callback: formatYAxis }, grid: { color: 'rgba(0,0,0,0.05)' }, border: { display: false } },
+              y: {
+                beginAtZero: true, ticks: { callback: formatYAxis }, grid: { color: 'rgba(0,0,0,0.05)' }, border: { display: false },
+              },
               x: { grid: { display: false }, border: { display: false } },
             },
           },
@@ -479,7 +508,7 @@ export const initDashboard = async (_role: string = 'admin') => {
       if (isRefreshing) return;
       isRefreshing = true;
 
-const refreshIcon = document.getElementById('refreshIcon');
+      const refreshIcon = document.getElementById('refreshIcon');
 
       try {
         // Tampilkan loading spinner di tombol refresh
@@ -489,11 +518,11 @@ const refreshIcon = document.getElementById('refreshIcon');
         }
 
         // Ambil data terbaru
-        const result = await getDashboardData();
+        const refreshResult = await getDashboardData();
 
-        if (result.error) {
-          console.error('Refresh error:', result.error);
-          showAlert('warning', `⚠️ Gagal refresh: ${result.error.message}`);
+        if (refreshResult.error) {
+          console.error('Refresh error:', refreshResult.error);
+          showAlert('warning', `⚠️ Gagal refresh: ${refreshResult.error.message}`);
           isRefreshing = false;
           if (refreshIcon) {
             refreshIcon.classList.remove('fa-spin');
@@ -502,7 +531,7 @@ const refreshIcon = document.getElementById('refreshIcon');
           return;
         }
 
-        if (!result.data) {
+        if (!refreshResult.data) {
           isRefreshing = false;
           if (refreshIcon) {
             refreshIcon.classList.remove('fa-spin');
@@ -512,8 +541,8 @@ const refreshIcon = document.getElementById('refreshIcon');
         }
 
         // Update variabel lokal
-        currentPemasukanList = result.data.pemasukanList || [];
-        currentPengeluaranList = result.data.pengeluaranList || [];
+        currentPemasukanList = refreshResult.data.pemasukanList || [];
+        currentPengeluaranList = refreshResult.data.pengeluaranList || [];
 
         // Update semua komponen UI
         updateCards(currentPemasukanList, currentPengeluaranList);
@@ -537,29 +566,6 @@ const refreshIcon = document.getElementById('refreshIcon');
         }
       }
     };
-
-    // ---- UPDATE CARD STATISTIK ----
-    function updateCards(pemasukan: any[], pengeluaran: any[]) {
-      const totalPemasukan = safeSum(pemasukan, 'jumlah');
-      const totalPengeluaran = safeSum(pengeluaran, 'jumlah');
-      const saldo = totalPemasukan - totalPengeluaran;
-
-      const elSaldo = document.getElementById('dashSaldo');
-      const elPemasukan = document.getElementById('dashPemasukan');
-      const elPengeluaran = document.getElementById('dashPengeluaran');
-
-      if (elSaldo) elSaldo.innerHTML = formatRupiah(saldo);
-      if (elPemasukan) elPemasukan.innerHTML = formatRupiah(totalPemasukan);
-      if (elPengeluaran) elPengeluaran.innerHTML = formatRupiah(totalPengeluaran);
-    }
-
-    // ---- UPDATE TIMESTAMP ----
-    function updateSyncTimestamp() {
-      const ts = document.getElementById('syncTimestamp');
-      if (ts) ts.textContent = getLastSyncTime();
-      const indicator = document.getElementById('lastUpdated');
-      if (indicator) indicator.classList.remove('d-none');
-    }
 
     // ---- RENDER AWAL ----
     renderCharts('bulanan');
@@ -587,7 +593,7 @@ const refreshIcon = document.getElementById('refreshIcon');
     }
 
     // --- 3. EventBus Listener: auto-refresh saat data berubah ---
-    let debouncedRefresh = debounce(refreshDashboard, 500);
+    const debouncedRefresh = debounce(refreshDashboard, 500);
 
     const cleanupEventBus = EventBus.on('data:changed', (payload: any) => {
       console.log('[Dashboard] Event received:', payload);
@@ -649,12 +655,11 @@ const refreshIcon = document.getElementById('refreshIcon');
 
     // Expose cleanup untuk digunakan oleh navigation system
     (window as any).__cleanupDashboard = cleanup;
-
   } catch (err) {
     console.error('initDashboard unexpected error:', err);
     showAlert(
       'danger',
-      `⚠️ Terjadi kesalahan: ${(err as Error).message || 'Silakan coba lagi.'}`
+      `⚠️ Terjadi kesalahan: ${(err as Error).message || 'Silakan coba lagi.'}`,
     );
     clearAllSpinners();
   }
@@ -690,7 +695,7 @@ function showAlert(type: 'success' | 'danger' | 'warning', message: string) {
  */
 function clearAllSpinners() {
   const ids = ['dashPemasukan', 'dashPengeluaran', 'dashSaldo'];
-  ids.forEach((id) => {
+  ids.forEach(id => {
     const el = document.getElementById(id);
     if (el) {
       el.textContent = 'Rp 0';

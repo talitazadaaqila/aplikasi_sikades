@@ -1,18 +1,16 @@
-import {
-  getPemasukan,
-  createPemasukan,
-  deletePemasukan,
-  updatePemasukan,
-  EventBus,
-  debounce,
-} from '../services/transaksiService';
-import { formatRupiah, formatDate } from '../utils/formatter';
-import { exportToPDF } from '../utils/export';
 import type { Pemasukan } from '../interfaces';
+import {
+  createPemasukan,
+  debounce,
+  deletePemasukan,
+  EventBus,
+  getPemasukan,
+  updatePemasukan,
+} from '../services/transaksiService';
+import { exportToPDF } from '../utils/export';
+import { formatDate, formatRupiah } from '../utils/formatter';
 
-
-export const renderPemasukan = () => {
-  return `
+export const renderPemasukan = () => `
     <div class="container-fluid fade-in px-2 py-3">
       <div class="d-flex justify-content-between align-items-center mb-1">
         <h3 class="fw-bold mb-0" style="color: #1b4933; font-family: serif;">Pemasukan Kas Desa</h3>
@@ -94,81 +92,13 @@ export const renderPemasukan = () => {
       </div>
     </div>
   `;
-};
 
 export const initPemasukan = async () => {
   let allData: Pemasukan[] = [];
   let filteredData: Pemasukan[] = [];
-  
-  // Guard agar setup listener (search/export) tidak dobel (sementara belum dipakai)
-  // let isSetupSearch = false;
-  // let isSetupExport = false;
 
-  
-  const setupRealtime = () => {
-    const debouncedLoad = debounce(loadData, 300);
-    const cleanup = EventBus.on('data:changed', (payload: any) => {
-      if (!payload) return;
-      if (payload.source !== 'pemasukan') return;
-      // Hanya refresh bila ada perubahan yang relevan
-      debouncedLoad();
-    });
-    return cleanup;
-  };
-
-  const renderTable = (data: Pemasukan[]) => {
-    filteredData = data; // Track currently visible data
-    const tbody = document.getElementById('tablePemasukanBody');
-    if (!tbody) return;
-    
-    if (data.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-4 border-0">Data tidak ditemukan</td></tr>`;
-      return;
-    }
-
-    tbody.innerHTML = data.map((item) => `
-      <tr style="border-bottom: 1px solid #f0f0f0;">
-        <td class="border-0 text-muted" style="font-size: 0.95rem;">${formatDate(item.tanggal)}</td>
-        <td class="border-0 fw-medium" style="color: #1b4933; font-size: 0.95rem;">${item.sumber}</td>
-        <td class="border-0 text-center fw-bold" style="color: #288d57; font-size: 0.95rem;">
-          ${formatRupiah(item.jumlah)}
-        </td>
-        <td class="border-0 text-muted small" style="font-size: 0.9rem;">${item.keterangan}</td>
-        <td class="border-0 text-center">
-          <div class="d-flex justify-content-center gap-2">
-            <button class="btn btn-sm btn-outline-success border-0 p-1 btn-edit-in" data-id="${item.id}">
-              <i class="bi bi-pencil-square" style="font-size: 1.1rem;"></i>
-            </button>
-            <button class="btn btn-sm btn-outline-danger border-0 p-1 btn-delete-in" data-id="${item.id}">
-              <i class="bi bi-trash" style="font-size: 1.1rem;"></i>
-            </button>
-          </div>
-        </td>
-      </tr>
-    `).join('');
-
-    // Re-attach delete listeners
-    document.querySelectorAll('.btn-delete-in').forEach(btn => {
-      btn.addEventListener('click', async (e) => {
-        const id = (e.currentTarget as HTMLButtonElement).dataset.id;
-        if (id && confirm('Yakin ingin menghapus data pemasukan ini?')) {
-          await deletePemasukan(id);
-          await loadData();
-        }
-      });
-    });
-
-    // Re-attach edit listeners
-    document.querySelectorAll('.btn-edit-in').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        const id = (e.currentTarget as HTMLButtonElement).dataset.id;
-        const item = allData.find(d => d.id === id);
-        if (item) {
-          showEditModal(item);
-        }
-      });
-    });
-  };
+  let searchBound = false;
+  let exportBound = false;
 
   const showEditModal = (item: Pemasukan) => {
     const modalTitle = document.getElementById('modalPemasukanTitle');
@@ -191,39 +121,93 @@ export const initPemasukan = async () => {
     modal.show();
   };
 
+  const renderTable = (data: Pemasukan[]) => {
+    filteredData = data; // Track currently visible data
+    const tbody = document.getElementById('tablePemasukanBody');
+    if (!tbody) return;
+
+    if (data.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4 border-0">Data tidak ditemukan</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = data.map(item => `
+      <tr style="border-bottom: 1px solid #f0f0f0;">
+        <td class="border-0 text-muted" style="font-size: 0.95rem;">${formatDate(item.tanggal)}</td>
+        <td class="border-0 fw-medium" style="color: #1b4933; font-size: 0.95rem;">${item.sumber}</td>
+        <td class="border-0 text-center fw-bold" style="color: #288d57; font-size: 0.95rem;">
+          ${formatRupiah(item.jumlah)}
+        </td>
+        <td class="border-0 text-muted small" style="font-size: 0.9rem;">${item.keterangan}</td>
+        <td class="border-0 text-center">
+          <div class="d-flex justify-content-center gap-2">
+            <button class="btn btn-sm btn-outline-success border-0 p-1 btn-edit-in" data-id="${item.id}">
+              <i class="bi bi-pencil-square" style="font-size: 1.1rem;"></i>
+            </button>
+            <button class="btn btn-sm btn-outline-danger border-0 p-1 btn-delete-in" data-id="${item.id}">
+              <i class="bi bi-trash" style="font-size: 1.1rem;"></i>
+            </button>
+          </div>
+        </td>
+      </tr>
+    `).join('');
+
+    // Re-attach delete listeners
+    document.querySelectorAll('.btn-delete-in').forEach(btn => {
+      btn.addEventListener('click', async e => {
+        const { id } = (e.currentTarget as HTMLButtonElement).dataset;
+        if (id && window.confirm('Yakin ingin menghapus data pemasukan ini?')) {
+          await deletePemasukan(id);
+          await loadData();
+        }
+      });
+    });
+
+    // Re-attach edit listeners
+    document.querySelectorAll('.btn-edit-in').forEach(btn => {
+      btn.addEventListener('click', e => {
+        const { id } = (e.currentTarget as HTMLButtonElement).dataset;
+        const item = allData.find(d => d.id === id);
+        if (item) {
+          showEditModal(item);
+        }
+      });
+    });
+  };
+
   const loadData = async () => {
     const { data, error } = await getPemasukan();
 
     if (error || !data) {
       const tbody = document.getElementById('tablePemasukanBody');
-      if (tbody) tbody.innerHTML = `<tr><td colspan="5" class="text-center text-danger py-4 border-0">Gagal memuat data</td></tr>`;
+      if (tbody) tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger py-4 border-0">Gagal memuat data</td></tr>';
       return;
     }
     allData = data;
     renderTable(allData);
-    
-    // Setup Search
+
+    // Setup Search (sekali saja)
     const searchInput = document.getElementById('searchInput') as HTMLInputElement;
-    if (searchInput) {
-      searchInput.addEventListener('input', (e) => {
+    if (searchInput && !searchBound) {
+      searchBound = true;
+      searchInput.addEventListener('input', e => {
         const query = (e.target as HTMLInputElement).value.toLowerCase();
-        const filtered = allData.filter(item => 
-          item.sumber.toLowerCase().includes(query) || 
-          item.keterangan.toLowerCase().includes(query)
-        );
+        const filtered = allData.filter(item => item.sumber.toLowerCase().includes(query)
+          || item.keterangan.toLowerCase().includes(query));
         renderTable(filtered);
       });
     }
 
-    // Setup Export
+    // Setup Export (sekali saja)
     const btnExport = document.getElementById('btnExportPemasukan');
-    if (btnExport) {
+    if (btnExport && !exportBound) {
+      exportBound = true;
       btnExport.onclick = () => {
         const columns = [
           { header: 'Tanggal', dataKey: 'tanggal' },
           { header: 'Sumber', dataKey: 'sumber' },
           { header: 'Keterangan', dataKey: 'keterangan' },
-          { header: 'Jumlah (Rp)', dataKey: 'jumlah' }
+          { header: 'Jumlah (Rp)', dataKey: 'jumlah' },
         ];
         const exportData = filteredData.map(item => ({
           tanggal: formatDate(item.tanggal),
@@ -237,6 +221,16 @@ export const initPemasukan = async () => {
     }
   };
 
+  const setupRealtime = () => {
+    const debouncedLoad = debounce(loadData, 300);
+    const cleanup = EventBus.on('data:changed', (payload: any) => {
+      if (!payload) return;
+      if (payload.source !== 'pemasukan') return;
+      debouncedLoad();
+    });
+    return cleanup;
+  };
+
   await loadData();
 
   // Setup realtime refresh
@@ -246,7 +240,7 @@ export const initPemasukan = async () => {
   const cleanup = () => {
     try {
       if (typeof cleanupRealtime === 'function') cleanupRealtime();
-    } catch {}
+    } catch { /* cleanup aman */ }
   };
   (window as any).__cleanupPemasukan = cleanup;
 
@@ -265,7 +259,7 @@ export const initPemasukan = async () => {
   });
 
   const form = document.getElementById('formPemasukan');
-  form?.addEventListener('submit', async (e) => {
+  form?.addEventListener('submit', async e => {
     e.preventDefault();
     const id = (document.getElementById('formIdPemasukan') as HTMLInputElement).value;
     const formData: Pemasukan = {
@@ -284,14 +278,14 @@ export const initPemasukan = async () => {
     } else {
       res = await createPemasukan(formData);
     }
-    
+
     if (submitBtn) submitBtn.disabled = false;
 
     if (!res.error) {
       (window as any).Swal?.fire({
         icon: 'success',
         title: 'Berhasil',
-        text: id ? 'Data pemasukan berhasil diperbarui.' : 'Data pemasukan berhasil disimpan.' ,
+        text: id ? 'Data pemasukan berhasil diperbarui.' : 'Data pemasukan berhasil disimpan.',
         timer: 1500,
         showConfirmButton: false,
       });
@@ -311,7 +305,7 @@ export const initPemasukan = async () => {
       (window as any).Swal?.fire({
         icon: 'error',
         title: 'Gagal',
-        text: 'Gagal menyimpan data: ' + (res.error?.message || 'Terjadi kesalahan'),
+        text: `Gagal menyimpan data: ${res.error?.message || 'Terjadi kesalahan'}`,
       });
     }
   });

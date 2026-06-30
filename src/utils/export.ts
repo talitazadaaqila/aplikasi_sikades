@@ -1,11 +1,11 @@
-import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
-import type { UserOptions } from 'jspdf-autotable';
+
+import { jsPDF as JsPDF } from 'jspdf';
 
 declare module 'jspdf' {
   interface jsPDF {
     lastAutoTable: { finalY: number };
-    autoTable: (options: UserOptions) => jsPDF;
+    autoTable: (..._args: any[]) => jsPDF;
   }
 }
 
@@ -18,13 +18,13 @@ interface ColumnDef {
  * Export data to PDF with a professional layout and village branding
  */
 export const exportToPDF = (
-  title: string, 
-  columns: ColumnDef[], 
-  data: any[], 
-  filename: string
+  title: string,
+  columns: ColumnDef[],
+  data: any[],
+  filename: string,
 ) => {
-  const Swal = (window as any).Swal;
-  
+  const { Swal } = (window as any);
+
   try {
     // Show loading notification if Swal is available
     if (Swal) {
@@ -34,14 +34,14 @@ export const exportToPDF = (
         allowOutsideClick: false,
         didOpen: () => {
           Swal.showLoading();
-        }
+        },
       });
     }
 
-    const doc = new jsPDF({
+    const doc = new JsPDF({
       orientation: 'portrait',
       unit: 'mm',
-      format: 'a4'
+      format: 'a4',
     });
 
     const primaryColor: [number, number, number] = [27, 73, 51]; // #1b4933 (Deep Green)
@@ -80,14 +80,14 @@ export const exportToPDF = (
     const printDate = new Date().toLocaleDateString('id-ID', {
       day: 'numeric',
       month: 'long',
-      year: 'numeric'
+      year: 'numeric',
     });
     doc.text(`Tanggal Cetak: ${printDate}`, 14, 58);
 
     // Main Table
     doc.autoTable({
       startY: 63,
-      columns: columns,
+      columns,
       body: data,
       theme: 'striped',
       headStyles: {
@@ -95,21 +95,21 @@ export const exportToPDF = (
         textColor: 255,
         fontSize: 11,
         fontStyle: 'bold',
-        halign: 'center'
+        halign: 'center',
       },
       bodyStyles: {
         fontSize: 10,
-        cellPadding: 4
+        cellPadding: 4,
       },
       alternateRowStyles: {
-        fillColor: [245, 250, 247]
+        fillColor: [245, 250, 247],
       },
       margin: { left: 14, right: 14 },
-      didDrawPage: (_dataArg) => {
+      didDrawPage: () => {
         // Footer: Page Number and Branding
         doc.setFontSize(9);
         doc.setTextColor(150);
-        const pageSize = doc.internal.pageSize;
+        const { pageSize } = doc.internal;
         const pageHeight = pageSize.height ? pageSize.height : pageSize.getHeight();
         const pageWidth = pageSize.width ? pageSize.width : pageSize.getWidth();
 
@@ -119,7 +119,7 @@ export const exportToPDF = (
         // Right footer (Page X of Y)
         const pageNumber = (doc.internal as any).getNumberOfPages();
         doc.text(`Halaman ${pageNumber}`, pageWidth - 14, pageHeight - 10, { align: 'right' });
-      }
+      },
     });
 
     // Signature Area
@@ -142,10 +142,9 @@ export const exportToPDF = (
         icon: 'success',
         title: 'Unduhan Berhasil',
         text: 'File PDF Laporan Keuangan telah berhasil diunduh.',
-        confirmButtonColor: '#1b4933'
+        confirmButtonColor: '#1b4933',
       });
     }
-
   } catch (error) {
     console.error('Error exporting PDF:', error);
     if (Swal) {
@@ -153,9 +152,8 @@ export const exportToPDF = (
         icon: 'error',
         title: 'Ekspor Gagal',
         text: 'Terjadi kesalahan teknis saat membuat file PDF.',
-        confirmButtonColor: '#e74c3c'
+        confirmButtonColor: '#e74c3c',
       });
     }
   }
 };
-

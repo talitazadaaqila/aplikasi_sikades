@@ -1,7 +1,6 @@
 import { login } from '../auth/auth';
 
-export const renderLogin = () => {
-  return `
+export const renderLogin = () => `
     <div class="d-flex align-items-center justify-content-center vh-100 w-100" style="background-color: #f2f7f4; position: absolute; top:0; left:0; z-index: 9999;">
       <div class="container d-flex flex-column flex-md-row justify-content-center align-items-stretch" style="max-width: 900px; gap: 24px; padding: 20px;">
         
@@ -71,22 +70,21 @@ export const renderLogin = () => {
       </div>
     </div>
   `;
-};
 
 export const initLogin = (onSuccess: () => void) => {
   const form = document.getElementById('loginForm');
-  form?.addEventListener('submit', async (e) => {
+  form?.addEventListener('submit', async e => {
     e.preventDefault();
     const email = (document.getElementById('emailInput') as HTMLInputElement).value;
     const password = (document.getElementById('passwordInput') as HTMLInputElement).value;
     const errorEl = document.getElementById('loginError');
     const submitBtn = form.querySelector('button[type="submit"]') as HTMLButtonElement;
-    
-    if(submitBtn) submitBtn.disabled = true;
-    
+
+    if (submitBtn) submitBtn.disabled = true;
+
     const { error } = await login(email, password);
-    
-    if(submitBtn) submitBtn.disabled = false;
+
+    if (submitBtn) submitBtn.disabled = false;
 
     if (error) {
       if (errorEl) {

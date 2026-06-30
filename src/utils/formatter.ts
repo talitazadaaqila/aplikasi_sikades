@@ -3,7 +3,7 @@ export const formatRupiah = (angka: number | string | null | undefined): string 
 
   const parsed = typeof angka === 'string' ? parseFloat(angka.replace(/[^0-9.-]+/g, '')) : Number(angka);
 
-  if (isNaN(parsed) || !isFinite(parsed)) return 'Rp 0';
+  if (Number.isNaN(parsed) || !Number.isFinite(parsed)) return 'Rp 0';
 
   return new Intl.NumberFormat('id-ID', {
     style: 'currency',
@@ -16,7 +16,7 @@ export const formatRupiah = (angka: number | string | null | undefined): string 
 export const formatDate = (dateString: string): string => {
   if (!dateString) return '-';
   const date = new Date(dateString);
-  if (isNaN(date.getTime())) return '-';
+  if (Number.isNaN(date.getTime())) return '-';
 
   return date.toLocaleDateString('id-ID', {
     year: 'numeric',
@@ -28,6 +28,6 @@ export const formatDate = (dateString: string): string => {
 export const formatNumber = (angka: number | string | null | undefined): string => {
   if (angka === null || angka === undefined) return '0';
   const parsed = typeof angka === 'string' ? parseFloat(angka) : Number(angka);
-  if (isNaN(parsed) || !isFinite(parsed)) return '0';
+  if (Number.isNaN(parsed) || !Number.isFinite(parsed)) return '0';
   return parsed.toLocaleString('id-ID');
 };

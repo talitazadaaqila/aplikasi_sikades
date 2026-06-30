@@ -1,8 +1,7 @@
 import { createNavbar } from './navbar';
 import { createSidebar } from './sidebar';
 
-export const renderLayout = (contentHTML: string, role: string = 'admin') => {
-  return `
+export const renderLayout = (contentHTML: string, role: string = 'admin') => `
     <style>
       body { background-color: #f9fbf9; }
       .menu-link.active {
@@ -23,4 +22,3 @@ export const renderLayout = (contentHTML: string, role: string = 'admin') => {
       </div>
     </div>
   `;
-};

@@ -1,9 +1,8 @@
 import { getPemasukan, getPengeluaran } from '../services/transaksiService';
-import { formatRupiah, formatDate } from '../utils/formatter';
 import { exportToPDF } from '../utils/export';
+import { formatDate, formatRupiah } from '../utils/formatter';
 
-export const renderExport = () => {
-  return `
+export const renderExport = () => `
     <div class="container-fluid fade-in px-2 py-3">
       <div class="mb-4">
         <h3 class="fw-bold mb-1" style="color: #1b4933; font-family: serif;">Export Laporan PDF</h3>
@@ -69,7 +68,6 @@ export const renderExport = () => {
       </div>
     </div>
   `;
-};
 
 export const initExport = async () => {
   // Pemasukan Export
@@ -80,7 +78,7 @@ export const initExport = async () => {
         { header: 'Tanggal', dataKey: 'tanggal' },
         { header: 'Sumber', dataKey: 'sumber' },
         { header: 'Keterangan', dataKey: 'keterangan' },
-        { header: 'Jumlah (Rp)', dataKey: 'jumlah' }
+        { header: 'Jumlah (Rp)', dataKey: 'jumlah' },
       ];
       const exportData = data.map((item: any) => ({
         tanggal: formatDate(item.tanggal),
@@ -100,7 +98,7 @@ export const initExport = async () => {
         { header: 'Tanggal', dataKey: 'tanggal' },
         { header: 'Tujuan', dataKey: 'tujuan' },
         { header: 'Keterangan', dataKey: 'keterangan' },
-        { header: 'Jumlah (Rp)', dataKey: 'jumlah' }
+        { header: 'Jumlah (Rp)', dataKey: 'jumlah' },
       ];
       const exportData = data.map((item: any) => ({
         tanggal: formatDate(item.tanggal),
@@ -118,7 +116,7 @@ export const initExport = async () => {
     if (resIn.data && resOut.data) {
       const merged = [
         ...resIn.data.map((i: any) => ({ ...i, tipe: 'Pemasukan' })),
-        ...resOut.data.map((i: any) => ({ ...i, tipe: 'Pengeluaran' }))
+        ...resOut.data.map((i: any) => ({ ...i, tipe: 'Pengeluaran' })),
       ].sort((a, b) => new Date(a.tanggal).getTime() - new Date(b.tanggal).getTime());
 
       const columns = [
@@ -127,7 +125,7 @@ export const initExport = async () => {
         { header: 'Jenis', dataKey: 'tipe' },
         { header: 'Uraian', dataKey: 'uraian' },
         { header: 'Masuk (Rp)', dataKey: 'in' },
-        { header: 'Keluar (Rp)', dataKey: 'out' }
+        { header: 'Keluar (Rp)', dataKey: 'out' },
       ];
       const exportData = merged.map((item, i) => {
         const isIn = item.tipe === 'Pemasukan';
@@ -137,7 +135,7 @@ export const initExport = async () => {
           tipe: item.tipe,
           uraian: isIn ? `${item.sumber} - ${item.keterangan}` : `${item.tujuan} - ${item.keterangan}`,
           in: isIn ? formatRupiah(item.jumlah) : '-',
-          out: !isIn ? formatRupiah(item.jumlah) : '-'
+          out: !isIn ? formatRupiah(item.jumlah) : '-',
         };
       });
       exportToPDF('Buku Kas Umum Desa - Laporan Lengkap', columns, exportData, 'Laporan_Lengkap_SIKADES');

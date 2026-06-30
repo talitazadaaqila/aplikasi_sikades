@@ -1,5 +1,4 @@
-export const createNavbar = () => {
-   return `
+export const createNavbar = () => `
      <nav class="navbar navbar-expand-lg border-bottom fixed-top" style="background-color: #ffffff; z-index: 1030; padding: 10px 20px;">
        <div class="container-fluid d-flex justify-content-between align-items-center">
          <div class="d-flex align-items-center">
@@ -24,4 +23,3 @@ export const createNavbar = () => {
        </div>
      </nav>
    `;
- };

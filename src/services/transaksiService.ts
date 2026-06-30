@@ -32,9 +32,8 @@ import type { Pemasukan, Pengeluaran } from '../interfaces';
 // ========================
 
 /** Cek apakah sedang mode mock (development tanpa Supabase) */
-export const isUsingDummy =
-  (import.meta.env.VITE_SUPABASE_URL || 'https://dummy.supabase.co') ===
-  'https://dummy.supabase.co';
+export const isUsingDummy = (import.meta.env.VITE_SUPABASE_URL || 'https://dummy.supabase.co')
+  === 'https://dummy.supabase.co';
 
 const KEY_PEMASUKAN = 'mock_pemasukan';
 const KEY_PENGELUARAN = 'mock_pengeluaran';
@@ -94,17 +93,17 @@ const saveMockData = (key: string, data: any[]): void => {
  *   unsub();
  */
 class EventBusClass {
-  private listeners: Map<string, Set<Function>> = new Map();
+  private listeners: Map<string, Set<(..._args: unknown[]) => void>> = new Map();
 
   /**
    * Subscribe ke event
    * @returns Function untuk unsubscribe
    */
-  on(event: string, callback: (...args: any[]) => void): () => void {
+  on(event: string, callback: (..._args: unknown[]) => void): () => void {
     if (!this.listeners.has(event)) {
       this.listeners.set(event, new Set());
     }
-    const wrappedCallback = (...args: any[]) => callback(...args);
+    const wrappedCallback = (..._args: unknown[]) => callback(..._args);
     this.listeners.get(event)!.add(wrappedCallback);
 
     // Return unsubscribe function
@@ -118,7 +117,7 @@ class EventBusClass {
     const eventListeners = this.listeners.get(event);
     if (eventListeners) {
       // Iterasi snapshot untuk menghindari issue jika callback unsubscribe saat iterasi
-      [...eventListeners].forEach((callback) => {
+      [...eventListeners].forEach(callback => {
         try {
           callback(data);
         } catch (err) {
@@ -154,15 +153,15 @@ export const EventBus = new EventBusClass();
  * @param wait - Waktu tunggu dalam milidetik
  * @returns Fungsi debounced
  */
-export const debounce = <T extends (...args: any[]) => void>(
+export const debounce = <T extends (..._args: any[]) => void>(
   func: T,
-  wait: number
-): ((...args: Parameters<T>) => void) => {
+  wait: number,
+): ((..._args: Parameters<T>) => void) => {
   let timeout: ReturnType<typeof setTimeout> | null = null;
-  return (...args: Parameters<T>) => {
+  return (..._args: Parameters<T>) => {
     if (timeout) clearTimeout(timeout);
     timeout = setTimeout(() => {
-      func(...args);
+      func(..._args);
       timeout = null;
     }, wait);
   };
@@ -267,7 +266,7 @@ if (isUsingDummy) {
 // ========================
 
 const handleSupabaseResult = async <T>(
-  promise: any
+  promise: any,
 ): Promise<{ data: T | null; error: any }> => {
   try {
     const result = await promise;
@@ -290,11 +289,10 @@ const handleSupabaseResult = async <T>(
  * Menjumlahkan field numerik dari array item dengan proteksi NaN.
  * DIEKSPOR agar bisa digunakan dari halaman lain.
  */
-export const safeSum = (items: any[], field: string): number =>
-  items.reduce((sum: number, item: any): number => {
-    const val = Number(item?.[field]);
-    return sum + (Number.isNaN(val) ? 0 : val);
-  }, 0);
+export const safeSum = (items: any[], field: string): number => items.reduce((sum: number, item: any): number => {
+  const val = Number(item?.[field]);
+  return sum + (Number.isNaN(val) ? 0 : val);
+}, 0);
 
 // ========================
 // PEMASUKAN — CRUD
@@ -306,17 +304,15 @@ export const getPemasukan = async (): Promise<{
 }> => {
   if (isUsingDummy) {
     const data = getMockData(KEY_PEMASUKAN).sort(
-      (a: any, b: any) => new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime()
+      (a: any, b: any) => new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime(),
     );
     return { data, error: null };
   }
-  return handleSupabaseResult(() =>
-    supabase.from('pemasukan').select('*').order('tanggal', { ascending: false })
-  );
+  return handleSupabaseResult(() => supabase.from('pemasukan').select('*').order('tanggal', { ascending: false }));
 };
 
 export const createPemasukan = async (
-  pemasukan: Pemasukan
+  pemasukan: Pemasukan,
 ): Promise<{ data: any; error: any }> => {
   if (isUsingDummy) {
     const data = getMockData(KEY_PEMASUKAN);
@@ -329,7 +325,7 @@ export const createPemasukan = async (
   const { id: _id, ...insertData } = pemasukan;
   void _id;
   const result = await handleSupabaseResult(
-    supabase.from('pemasukan').insert([insertData]).select()
+    supabase.from('pemasukan').insert([insertData]).select(),
   );
   if (!result.error) {
     EventBus.publish('data:changed', { source: 'pemasukan', action: 'create', data: result.data });
@@ -348,7 +344,7 @@ export const deletePemasukan = async (id: string): Promise<{
     return { data: null, error: null };
   }
   const result = await handleSupabaseResult(
-    supabase.from('pemasukan').delete().eq('id', id)
+    supabase.from('pemasukan').delete().eq('id', id),
   );
   if (!result.error) {
     EventBus.publish('data:changed', { source: 'pemasukan', action: 'delete', id });
@@ -358,7 +354,7 @@ export const deletePemasukan = async (id: string): Promise<{
 
 export const updatePemasukan = async (
   id: string,
-  pemasukan: Partial<Pemasukan>
+  pemasukan: Partial<Pemasukan>,
 ): Promise<{ data: any; error: any }> => {
   if (isUsingDummy) {
     const data = getMockData(KEY_PEMASUKAN);
@@ -374,7 +370,7 @@ export const updatePemasukan = async (
   const { id: _id, ...updateData } = pemasukan as any;
   void _id;
   const result = await handleSupabaseResult(
-    supabase.from('pemasukan').update(updateData).eq('id', id).select()
+    supabase.from('pemasukan').update(updateData).eq('id', id).select(),
   );
   if (!result.error) {
     EventBus.publish('data:changed', { source: 'pemasukan', action: 'update', id });
@@ -392,17 +388,15 @@ export const getPengeluaran = async (): Promise<{
 }> => {
   if (isUsingDummy) {
     const data = getMockData(KEY_PENGELUARAN).sort(
-      (a: any, b: any) => new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime()
+      (a: any, b: any) => new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime(),
     );
     return { data, error: null };
   }
-  return handleSupabaseResult(() =>
-    supabase.from('pengeluaran').select('*').order('tanggal', { ascending: false })
-  );
+  return handleSupabaseResult(() => supabase.from('pengeluaran').select('*').order('tanggal', { ascending: false }));
 };
 
 export const createPengeluaran = async (
-  pengeluaran: Pengeluaran
+  pengeluaran: Pengeluaran,
 ): Promise<{ data: any; error: any }> => {
   if (isUsingDummy) {
     const data = getMockData(KEY_PENGELUARAN);
@@ -415,7 +409,7 @@ export const createPengeluaran = async (
   const { id: _id, ...insertData } = pengeluaran;
   void _id;
   const result = await handleSupabaseResult(
-    supabase.from('pengeluaran').insert([insertData]).select()
+    supabase.from('pengeluaran').insert([insertData]).select(),
   );
   if (!result.error) {
     EventBus.publish('data:changed', { source: 'pengeluaran', action: 'create', data: result.data });
@@ -434,7 +428,7 @@ export const deletePengeluaran = async (id: string): Promise<{
     return { data: null, error: null };
   }
   const result = await handleSupabaseResult(
-    supabase.from('pengeluaran').delete().eq('id', id)
+    supabase.from('pengeluaran').delete().eq('id', id),
   );
   if (!result.error) {
     EventBus.publish('data:changed', { source: 'pengeluaran', action: 'delete', id });
@@ -444,7 +438,7 @@ export const deletePengeluaran = async (id: string): Promise<{
 
 export const updatePengeluaran = async (
   id: string,
-  pengeluaran: Partial<Pengeluaran>
+  pengeluaran: Partial<Pengeluaran>,
 ): Promise<{ data: any; error: any }> => {
   if (isUsingDummy) {
     const data = getMockData(KEY_PENGELUARAN);
@@ -460,7 +454,7 @@ export const updatePengeluaran = async (
   const { id: _id, ...updateData } = pengeluaran as any;
   void _id;
   const result = await handleSupabaseResult(
-    supabase.from('pengeluaran').update(updateData).eq('id', id).select()
+    supabase.from('pengeluaran').update(updateData).eq('id', id).select(),
   );
   if (!result.error) {
     EventBus.publish('data:changed', { source: 'pengeluaran', action: 'update', id });
@@ -558,7 +552,7 @@ export const setupRealtimeSubscriptions = (): (() => void) => {
           action: payload.eventType,
           data: payload.new,
         });
-      }
+      },
     )
     .subscribe();
 
@@ -575,7 +569,7 @@ export const setupRealtimeSubscriptions = (): (() => void) => {
           action: payload.eventType,
           data: payload.new,
         });
-      }
+      },
     )
     .subscribe();
 
@@ -608,13 +602,13 @@ const computeChecksum = (data: any[]): string => {
         id: item.id,
         jumlah: item.jumlah,
         tanggal: item.tanggal,
-      }))
+      })),
     );
     let hash = 0;
     for (let i = 0; i < json.length; i++) {
       const char = json.charCodeAt(i);
       hash = ((hash << 5) - hash) + char;
-      hash = hash & hash;
+      hash &= hash;
     }
     return hash.toString();
   } catch {
@@ -664,10 +658,8 @@ export const startDataPolling = (): (() => void) => {
 /**
  * Dapatkan timestamp terakhir sinkronisasi.
  */
-export const getLastSyncTime = (): string => {
-  return new Date().toLocaleTimeString('id-ID', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  });
-};
+export const getLastSyncTime = (): string => new Date().toLocaleTimeString('id-ID', {
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+});

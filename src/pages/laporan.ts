@@ -1,9 +1,8 @@
 import { getPemasukan, getPengeluaran } from '../services/transaksiService';
-import { formatRupiah, formatDate } from '../utils/formatter';
 import { exportToPDF } from '../utils/export';
+import { formatDate, formatRupiah } from '../utils/formatter';
 
-export const renderLaporan = () => {
-  return `
+export const renderLaporan = () => `
     <div class="container-fluid fade-in px-2 py-3">
       <div class="d-flex justify-content-between align-items-center mb-1">
         <h3 class="fw-bold mb-0" style="color: #1b4933; font-family: serif;">Rekap Laporan Keuangan</h3>
@@ -52,27 +51,26 @@ export const renderLaporan = () => {
       </div>
     </div>
   `;
-};
 
 export const initLaporan = async () => {
   const tbody = document.getElementById('tableLaporanBody');
   const tfoot = document.getElementById('tableLaporanFoot');
   const elSaldo = document.getElementById('totalSaldoRekap');
   if (!tbody || !tfoot) return;
-  
+
   const [resIn, resOut] = await Promise.all([getPemasukan(), getPengeluaran()]);
   if (resIn.error || resOut.error) {
-    tbody.innerHTML = `<tr><td colspan="6" class="text-center text-danger py-4 border-0">Gagal memuat rekap laporan</td></tr>`;
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger py-4 border-0">Gagal memuat rekap laporan</td></tr>';
     return;
   }
 
   const inData = (resIn.data || []).map((i: any) => ({ ...i, tipe: 'Pemasukan' }));
   const outData = (resOut.data || []).map((i: any) => ({ ...i, tipe: 'Pengeluaran' }));
-  
+
   const merged = [...inData, ...outData].sort((a, b) => new Date(a.tanggal).getTime() - new Date(b.tanggal).getTime());
 
   if (merged.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-4 border-0">Belum ada data transaksi</td></tr>`;
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4 border-0">Belum ada data transaksi</td></tr>';
     return;
   }
 
@@ -82,9 +80,9 @@ export const initLaporan = async () => {
   tbody.innerHTML = merged.map((item, index) => {
     let tdIn = '-';
     let tdOut = '-';
-    let label = item.tipe === 'Pemasukan' ? `<span class="badge rounded-pill" style="background-color: #eaf3ed; color: #288d57; border: 1px solid #d1e7dd;">Pemasukan</span>` : `<span class="badge rounded-pill" style="background-color: #fdf2f2; color: #dc3545; border: 1px solid #f8d7da;">Pengeluaran</span>`;
-    let uraian = item.tipe === 'Pemasukan' ? `<div class="fw-medium text-dark">${item.sumber}</div><div class="text-muted small">${item.keterangan}</div>` : `<div class="fw-medium text-dark">${item.tujuan}</div><div class="text-muted small">${item.keterangan}</div>`;
-    
+    const label = item.tipe === 'Pemasukan' ? '<span class="badge rounded-pill" style="background-color: #eaf3ed; color: #288d57; border: 1px solid #d1e7dd;">Pemasukan</span>' : '<span class="badge rounded-pill" style="background-color: #fdf2f2; color: #dc3545; border: 1px solid #f8d7da;">Pengeluaran</span>';
+    const uraian = item.tipe === 'Pemasukan' ? `<div class="fw-medium text-dark">${item.sumber}</div><div class="text-muted small">${item.keterangan}</div>` : `<div class="fw-medium text-dark">${item.tujuan}</div><div class="text-muted small">${item.keterangan}</div>`;
+
     if (item.tipe === 'Pemasukan') {
       totalIn += Number(item.jumlah);
       tdIn = `<span class="text-success fw-bold" style="color: #288d57 !important;">+ ${formatRupiah(item.jumlah)}</span>`;
@@ -128,7 +126,7 @@ export const initLaporan = async () => {
         { header: 'Jenis', dataKey: 'tipe' },
         { header: 'Uraian', dataKey: 'uraian' },
         { header: 'Masuk (Rp)', dataKey: 'in' },
-        { header: 'Keluar (Rp)', dataKey: 'out' }
+        { header: 'Keluar (Rp)', dataKey: 'out' },
       ];
       const exportData = merged.map((item, i) => {
         const isIn = item.tipe === 'Pemasukan';
@@ -138,7 +136,7 @@ export const initLaporan = async () => {
           tipe: item.tipe,
           uraian: isIn ? `${item.sumber} - ${item.keterangan}` : `${item.tujuan} - ${item.keterangan}`,
           in: isIn ? formatRupiah(item.jumlah) : '-',
-          out: !isIn ? formatRupiah(item.jumlah) : '-'
+          out: !isIn ? formatRupiah(item.jumlah) : '-',
         };
       });
 

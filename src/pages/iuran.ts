@@ -1,11 +1,13 @@
 import * as bootstrap from 'bootstrap';
-import { createRumah, deleteRumah, getAnggotaByRumah, createAnggota, deleteAnggota, getIuranByRumah, payIuran, getIuranStats } from '../services/iuranService';
-import { getDashboardData } from '../services/transaksiService';
-import { formatRupiah, formatDate } from '../utils/formatter';
-import type { Rumah, AnggotaKeluarga, Iuran } from '../interfaces';
 
-export const renderIuran = (role: string = 'admin') => {
-  return `
+import type { AnggotaKeluarga, Iuran, Rumah } from '../interfaces';
+import {
+  createAnggota, createRumah, deleteAnggota, deleteRumah, getAnggotaByRumah, getIuranByRumah, getIuranStats, payIuran,
+} from '../services/iuranService';
+import { getDashboardData } from '../services/transaksiService';
+import { formatDate, formatRupiah } from '../utils/formatter';
+
+export const renderIuran = (role: string = 'admin') => `
     <div class="container-fluid fade-in px-2 py-3">
       <div class="d-flex justify-content-between align-items-center mb-1">
         <h3 class="fw-bold mb-0" style="color: #1b4933; font-family: serif;">Daftar Iuran Warga</h3>
@@ -202,7 +204,6 @@ export const renderIuran = (role: string = 'admin') => {
       </div>
     </div>
   `;
-};
 
 export const initIuran = async (role: string = 'admin') => {
   let allRumah: Rumah[] = [];
@@ -223,12 +224,74 @@ export const initIuran = async (role: string = 'admin') => {
     if (elSaldo) elSaldo.textContent = formatRupiah(saldo);
   };
 
+  const refreshDetailLists = async (rumahId: string) => {
+    const listAnggota = document.getElementById('listAnggota');
+    const listIuran = document.getElementById('listIuran');
+
+    // Load Anggota
+    const { data: anggota } = await getAnggotaByRumah(rumahId);
+    if (listAnggota) {
+      if (anggota && anggota.length > 0) {
+        listAnggota.innerHTML = anggota.map((a: any) => `
+          <div class="list-group-item d-flex justify-content-between align-items-center">
+            <div>
+              <div class="fw-bold small">${a.nama}</div>
+              <div class="text-muted" style="font-size: 0.75rem;">${a.hubungan}</div>
+            </div>
+            <button class="btn btn-sm text-danger btn-delete-anggota p-0" data-id="${a.id}"><i class="bi bi-x-circle"></i></button>
+          </div>
+        `).join('');
+        document.querySelectorAll('.btn-delete-anggota').forEach(btn => {
+          btn.addEventListener('click', async e => {
+            const { id } = (e.currentTarget as HTMLButtonElement).dataset;
+            if (id) {
+              await deleteAnggota(id);
+              refreshDetailLists(rumahId);
+            }
+          });
+        });
+      } else {
+        listAnggota.innerHTML = '<div class="list-group-item text-center py-3 text-muted small">Belum ada anggota</div>';
+      }
+    }
+
+    // Load Iuran
+    const { data: iuran } = await getIuranByRumah(rumahId);
+    if (listIuran) {
+      if (iuran && iuran.length > 0) {
+        listIuran.innerHTML = iuran.map((i: any) => `
+          <div class="list-group-item">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <span class="badge bg-light text-dark border small">${i.bulan} ${i.tahun}</span>
+              <span class="fw-bold text-success small">${formatRupiah(i.jumlah)}</span>
+            </div>
+            <div class="text-muted" style="font-size: 0.7rem;">Dibayar pada: ${formatDate(i.tanggal)}</div>
+          </div>
+        `).join('');
+      } else {
+        listIuran.innerHTML = '<div class="list-group-item text-center py-3 text-muted small text-danger">Belum ada riwayat bayar</div>';
+      }
+    }
+  };
+
+  const openDetailModal = async (rumahId: string) => {
+    const rumah = allRumah.find(r => r.id === rumahId);
+    if (!rumah) return;
+
+    document.getElementById('detailTitle')!.textContent = `Rumah: ${rumah.kepala_keluarga}`;
+
+    const modal = new (window as any).bootstrap.Modal(document.getElementById('modalDetailRumah'));
+    modal.show();
+
+    refreshDetailLists(rumahId);
+  };
+
   const renderTable = (data: any[]) => {
     const tbody = document.getElementById('tableRumahBody');
     if (!tbody) return;
 
     if (data.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="4" class="text-center py-4 border-0 text-muted">Belum ada data rumah</td></tr>`;
+      tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4 border-0 text-muted">Belum ada data rumah</td></tr>';
       return;
     }
 
@@ -265,8 +328,8 @@ export const initIuran = async (role: string = 'admin') => {
 
     // Attach listeners
     document.querySelectorAll('.btn-detail').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        const id = (e.currentTarget as HTMLButtonElement).dataset.id;
+      btn.addEventListener('click', e => {
+        const { id } = (e.currentTarget as HTMLButtonElement).dataset;
         if (id) {
           currentDetailRumahId = id;
           openDetailModal(id);
@@ -275,8 +338,8 @@ export const initIuran = async (role: string = 'admin') => {
     });
 
     document.querySelectorAll('.btn-edit-rumah').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        const id = (e.currentTarget as HTMLButtonElement).dataset.id;
+      btn.addEventListener('click', e => {
+        const { id } = (e.currentTarget as HTMLButtonElement).dataset;
         const rumah = allRumah.find(r => r.id === id);
         if (rumah) {
           (document.getElementById('modalRumahTitle') as HTMLElement).textContent = 'Edit Data Rumah';
@@ -289,9 +352,9 @@ export const initIuran = async (role: string = 'admin') => {
     });
 
     document.querySelectorAll('.btn-delete-rumah').forEach(btn => {
-      btn.addEventListener('click', async (e) => {
-        const id = (e.currentTarget as HTMLButtonElement).dataset.id;
-        if (id && confirm('Hapus data rumah ini? Seluruh data anggota dan iuran juga akan terhapus.')) {
+      btn.addEventListener('click', async e => {
+        const { id } = (e.currentTarget as HTMLButtonElement).dataset;
+        if (id && window.confirm('Hapus data rumah ini? Seluruh data anggota dan iuran juga akan terhapus.')) {
           await deleteRumah(id);
           refreshAll();
         }
@@ -299,14 +362,14 @@ export const initIuran = async (role: string = 'admin') => {
     });
 
     document.querySelectorAll('.btn-status-bayar').forEach(btn => {
-      btn.addEventListener('click', async (e) => {
+      btn.addEventListener('click', async e => {
         const target = e.currentTarget as HTMLButtonElement;
-        const id = target.dataset.id;
+        const { id } = target.dataset;
         const isPaid = target.dataset.paid === 'true';
-        
+
         if (!id) return;
 
-        const months = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+        const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
         const currentMonth = months[new Date().getMonth()];
         const currentYear = new Date().getFullYear().toString();
 
@@ -319,7 +382,7 @@ export const initIuran = async (role: string = 'admin') => {
             confirmButtonColor: '#d33',
             cancelButtonColor: '#3085d6',
             confirmButtonText: 'Ya, Hapus',
-            cancelButtonText: 'Batal'
+            cancelButtonText: 'Batal',
           });
 
           if (confirm?.isConfirmed) {
@@ -334,75 +397,13 @@ export const initIuran = async (role: string = 'admin') => {
             bulan: currentMonth,
             tahun: currentYear,
             jumlah: 20000,
-            keterangan: `Iuran Bulanan ${currentMonth}`
+            keterangan: `Iuran Bulanan ${currentMonth}`,
           };
           await payIuran(newData);
           refreshAll();
         }
       });
     });
-  };
-
-  const openDetailModal = async (rumahId: string) => {
-    const rumah = allRumah.find(r => r.id === rumahId);
-    if (!rumah) return;
-
-    document.getElementById('detailTitle')!.textContent = `Rumah: ${rumah.kepala_keluarga}`;
-    
-    const modal = new (window as any).bootstrap.Modal(document.getElementById('modalDetailRumah'));
-    modal.show();
-
-    refreshDetailLists(rumahId);
-  };
-
-  const refreshDetailLists = async (rumahId: string) => {
-    const listAnggota = document.getElementById('listAnggota');
-    const listIuran = document.getElementById('listIuran');
-
-    // Load Anggota
-    const { data: anggota } = await getAnggotaByRumah(rumahId);
-    if (listAnggota) {
-      if (anggota && anggota.length > 0) {
-        listAnggota.innerHTML = anggota.map((a: any) => `
-          <div class="list-group-item d-flex justify-content-between align-items-center">
-            <div>
-              <div class="fw-bold small">${a.nama}</div>
-              <div class="text-muted" style="font-size: 0.75rem;">${a.hubungan}</div>
-            </div>
-            <button class="btn btn-sm text-danger btn-delete-anggota p-0" data-id="${a.id}"><i class="bi bi-x-circle"></i></button>
-          </div>
-        `).join('');
-        document.querySelectorAll('.btn-delete-anggota').forEach(btn => {
-          btn.addEventListener('click', async (e) => {
-            const id = (e.currentTarget as HTMLButtonElement).dataset.id;
-            if (id) {
-              await deleteAnggota(id);
-              refreshDetailLists(rumahId);
-            }
-          });
-        });
-      } else {
-        listAnggota.innerHTML = '<div class="list-group-item text-center py-3 text-muted small">Belum ada anggota</div>';
-      }
-    }
-
-    // Load Iuran
-    const { data: iuran } = await getIuranByRumah(rumahId);
-    if (listIuran) {
-      if (iuran && iuran.length > 0) {
-        listIuran.innerHTML = iuran.map((i: any) => `
-          <div class="list-group-item">
-            <div class="d-flex justify-content-between align-items-center mb-1">
-              <span class="badge bg-light text-dark border small">${i.bulan} ${i.tahun}</span>
-              <span class="fw-bold text-success small">${formatRupiah(i.jumlah)}</span>
-            </div>
-            <div class="text-muted" style="font-size: 0.7rem;">Dibayar pada: ${formatDate(i.tanggal)}</div>
-          </div>
-        `).join('');
-      } else {
-        listIuran.innerHTML = '<div class="list-group-item text-center py-3 text-muted small text-danger">Belum ada riwayat bayar</div>';
-      }
-    }
   };
 
   const refreshAll = async () => {
@@ -415,17 +416,15 @@ export const initIuran = async (role: string = 'admin') => {
   await refreshAll();
 
   // Search logic
-  document.getElementById('searchRumah')?.addEventListener('input', (e) => {
+  document.getElementById('searchRumah')?.addEventListener('input', e => {
     const query = (e.target as HTMLInputElement).value.toLowerCase();
-    const filtered = allRumah.filter(r => 
-      r.kepala_keluarga.toLowerCase().includes(query) || 
-      r.alamat.toLowerCase().includes(query)
-    );
+    const filtered = allRumah.filter(r => r.kepala_keluarga.toLowerCase().includes(query)
+      || r.alamat.toLowerCase().includes(query));
     renderTable(filtered);
   });
 
   // Form Rumah Submit
-  document.getElementById('formRumah')?.addEventListener('submit', async (e) => {
+  document.getElementById('formRumah')?.addEventListener('submit', async e => {
     e.preventDefault();
     const btn = (e.target as HTMLFormElement).querySelector('button[type="submit"]');
     if (btn) (btn as HTMLButtonElement).disabled = true;
@@ -433,16 +432,16 @@ export const initIuran = async (role: string = 'admin') => {
     const id = (document.getElementById('rumahId') as HTMLInputElement).value;
     const newData: Partial<Rumah> = {
       kepala_keluarga: (document.getElementById('kepalaKeluarga') as HTMLInputElement).value,
-      alamat: (document.getElementById('alamat') as HTMLTextAreaElement).value
+      alamat: (document.getElementById('alamat') as HTMLTextAreaElement).value,
     };
-    
+
     let res;
     if (id) {
       res = await (await import('../services/iuranService')).updateRumah(id, newData);
     } else {
       res = await createRumah(newData as Rumah);
     }
-    
+
     if (btn) (btn as HTMLButtonElement).disabled = false;
 
     if (!res.error) {
@@ -456,14 +455,14 @@ export const initIuran = async (role: string = 'admin') => {
         title: 'Berhasil',
         text: 'Data rumah berhasil disimpan.',
         timer: 1500,
-        showConfirmButton: false
+        showConfirmButton: false,
       });
       refreshAll();
     } else {
       (window as any).Swal?.fire({
         icon: 'error',
         title: 'Gagal',
-        text: 'Gagal menyimpan data rumah: ' + (res.error as any).message
+        text: `Gagal menyimpan data rumah: ${(res.error as any).message}`,
       });
     }
   });
@@ -485,12 +484,12 @@ export const initIuran = async (role: string = 'admin') => {
   });
 
   // Form Anggota Submit
-  document.getElementById('formAnggota')?.addEventListener('submit', async (e) => {
+  document.getElementById('formAnggota')?.addEventListener('submit', async e => {
     e.preventDefault();
     const newData: AnggotaKeluarga = {
       rumah_id: (document.getElementById('anggotaRumahId') as HTMLInputElement).value,
       nama: (document.getElementById('namaAnggota') as HTMLInputElement).value,
-      hubungan: (document.getElementById('hubunganAnggota') as HTMLSelectElement).value
+      hubungan: (document.getElementById('hubunganAnggota') as HTMLSelectElement).value,
     };
     const { error } = await createAnggota(newData);
     if (!error) {
@@ -507,7 +506,7 @@ export const initIuran = async (role: string = 'admin') => {
   document.getElementById('btnPayIuran')?.addEventListener('click', () => {
     (document.getElementById('payRumahId') as HTMLInputElement).value = currentDetailRumahId;
     const now = new Date();
-    const months = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+    const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
     const payBulan = document.getElementById('payBulan') as HTMLSelectElement;
     const payTahun = document.getElementById('payTahun') as HTMLInputElement;
     payBulan.value = months[now.getMonth()];
@@ -519,7 +518,7 @@ export const initIuran = async (role: string = 'admin') => {
   });
 
   // Form Pay Iuran Submit
-  document.getElementById('formPayIuran')?.addEventListener('submit', async (e) => {
+  document.getElementById('formPayIuran')?.addEventListener('submit', async e => {
     e.preventDefault();
     const payBulan = document.getElementById('payBulan') as HTMLSelectElement;
     const payTahun = document.getElementById('payTahun') as HTMLInputElement;
@@ -531,7 +530,7 @@ export const initIuran = async (role: string = 'admin') => {
       bulan: payBulan.value,
       tahun: payTahun.value,
       jumlah: Number(payJumlah.value),
-      keterangan: `Iuran Bulanan ${keterangan}`
+      keterangan: `Iuran Bulanan ${keterangan}`,
     };
     const { error } = await payIuran(newData);
     if (!error) {
@@ -544,7 +543,7 @@ export const initIuran = async (role: string = 'admin') => {
         title: 'Pembayaran Berhasil',
         text: 'Data iuran telah tercatat.',
         timer: 1500,
-        showConfirmButton: false
+        showConfirmButton: false,
       });
       refreshDetailLists(currentDetailRumahId);
       refreshAll();

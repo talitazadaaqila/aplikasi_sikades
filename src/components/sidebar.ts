@@ -1,6 +1,6 @@
 export const createSidebar = (role: string = 'admin') => {
   const isAdmin = role === 'admin';
-  
+
   return `
     <div class="p-3 vh-100 sidebar-container d-flex flex-column" style="width: 250px; position: fixed; top: 60px; left: 0; z-index: 1000; overflow-y: auto; background-color: #1b4933; color: white;">
       <ul class="nav flex-column gap-2 mt-4" id="sidebarNav" style="flex: 1;">
