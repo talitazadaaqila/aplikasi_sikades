@@ -217,3 +217,6 @@ Workflow: `.github/workflows/ci.yml`
 ## Lisensi
 
 Hak cipta milik Pengembang Desa Gembong Beringin, Kecamatan Kedungwuni, Kabupaten Pekalongan.
+Nama : Talita Zada Aqila
+NIM  : 101230003
+Kelas: TF23B
